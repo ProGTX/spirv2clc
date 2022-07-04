@@ -45,9 +45,18 @@ else()
 endif()
 
 if(${BUILD_SHARED_LIBS})
+  set(static_build OFF)
   set(spirv_tools_target SPIRV-Tools-shared)
 else()
+  set(static_build ON)
   set(spirv_tools_target SPIRV-Tools-static)
+endif()
+
+option(SPIRV2CLC_FULLY_STATIC
+  "Should a static build result in a single library" ${static_build})
+
+if(${SPIRV2CLC_FULLY_STATIC} AND ${BUILD_SHARED_LIBS})
+  message(FATAL_ERROR "Cannot request fully static build when building a shared library")
 endif()
 
 # Add SPIRV-Tools
