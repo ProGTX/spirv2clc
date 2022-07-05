@@ -40,6 +40,16 @@ install(TARGETS libspirv2clc
     LIBRARY DESTINATION lib COMPONENT libraries
     ARCHIVE DESTINATION lib COMPONENT libraries
 )
+install(TARGETS ${spirv_tools_target}
+    RUNTIME DESTINATION lib COMPONENT libraries
+    LIBRARY DESTINATION lib COMPONENT libraries
+    ARCHIVE DESTINATION lib COMPONENT libraries
+)
+install(TARGETS SPIRV-Tools-opt
+    RUNTIME DESTINATION lib COMPONENT libraries
+    LIBRARY DESTINATION lib COMPONENT libraries
+    ARCHIVE DESTINATION lib COMPONENT libraries
+)
 install(FILES
         "${PROJECT_SOURCE_DIR}/include/spirv2clc.h"
         "${CMAKE_CURRENT_BINARY_DIR}/libspirv2clc_export.h"

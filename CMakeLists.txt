@@ -44,6 +44,12 @@ else()
     add_compile_options(-Wall -Wextra -pedantic)
 endif()
 
+if(${BUILD_SHARED_LIBS})
+  set(spirv_tools_target SPIRV-Tools-shared)
+else()
+  set(spirv_tools_target SPIRV-Tools-static)
+endif()
+
 # Add SPIRV-Tools
 set(SPIRV-Headers_SOURCE_DIR ${PROJECT_SOURCE_DIR}/external/SPIRV-Headers)
 set(SPIRV_TOOLS_DIR ${PROJECT_SOURCE_DIR}/external/SPIRV-Tools)
