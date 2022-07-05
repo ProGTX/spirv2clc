@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
     err = translator.translate(buffer.str(), &srcgen);
   } else {
     file.seekg(0, std::ios::end);
-    uint32_t size = file.tellg();
+    auto size = static_cast<uint32_t>(file.tellg());
     file.seekg(0, std::ios::beg);
     std::vector<uint32_t> binary(size / sizeof(uint32_t));
     file.read(reinterpret_cast<char *>(binary.data()), size);

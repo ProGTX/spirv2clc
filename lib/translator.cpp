@@ -17,9 +17,33 @@
 #define CL_TARGET_OPENCL_VERSION 120
 #include "CL/cl_half.h"
 
+#define SPIRV2CLC_DIAG_HELPER(message) _Pragma(#message)
+
+#ifdef _MSC_VER
+#define SPIRV2CLC_GNU_DIAG(message)
+
+// Some warnings come from headers from dependencies
+#pragma warning(push)
+// conditional expression is constant
+#pragma warning(disable : 4127)
+
+#elif defined(__clang__)
+#define SPIRV2CLC_GNU_DIAG(message)                                            \
+  SPIRV2CLC_DIAG_HELPER(clang diagnostic message)
+
+#elif defined(__GNUC__)
+#define SPIRV2CLC_GNU_DIAG(message)                                            \
+  SPIRV2CLC_DIAG_HELPER(GCC diagnostic message)
+
+#endif
+
 #include "opt/build_module.h"
 #include "opt/ir_context.h"
 #include "spirv/unified1/OpenCL.std.h"
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 using namespace spvtools;
 using namespace spvtools::opt;
@@ -65,6 +89,9 @@ const spvtools::MessageConsumer spvtools_message_consumer =
         break;
       case SPV_MSG_DEBUG:
         levelstr = "DEBUG";
+        break;
+      default:
+        levelstr = "UNKNOWN ERROR";
         break;
       }
       printf("spvtools says '%s' (%s) at position %zu", message, levelstr,
@@ -794,8 +821,8 @@ bool translator::translate_instruction(const Instruction &inst,
   }
   case SpvOpConvertPtrToU:
   case SpvOpConvertUToPtr: {
-    auto src = inst.GetSingleWordOperand(2);
-    sval = src_cast(rtype, src);
+    auto op_src = inst.GetSingleWordOperand(2);
+    sval = src_cast(rtype, op_src);
     break;
   }
   case SpvOpInBoundsPtrAccessChain: {
@@ -1951,12 +1978,12 @@ bool translator::translate_annotations() {
       bool nowrite = m_nowrite_params.count(group) != 0;
       bool saturated_conversion = m_saturated_conversions.count(group) != 0;
       bool has_rounding_mode = m_rounding_mode_decorations.count(group) != 0;
-      SpvFPRoundingMode rounding_mode;
+      SpvFPRoundingMode rounding_mode{};
       if (has_rounding_mode) {
         rounding_mode = m_rounding_mode_decorations.at(group);
       }
       bool has_alignment = m_alignments.count(group) != 0;
-      uint32_t alignment;
+      uint32_t alignment{};
       if (has_alignment) {
         alignment = m_alignments.at(group);
       }
@@ -2253,6 +2280,9 @@ bool translator::translate_types_values() {
         break;
       }
       case Type::Kind::kFloat: {
+        SPIRV2CLC_GNU_DIAG(push)
+        // Disable warnings about reinterpret_cast
+        SPIRV2CLC_GNU_DIAG(ignored "-Wstrict-aliasing")
         auto tfloat = type->AsFloat();
         auto width = tfloat->width();
         std::ostringstream out;
@@ -2299,6 +2329,7 @@ bool translator::translate_types_values() {
         }
         m_literals[result] = out.str();
         break;
+        SPIRV2CLC_GNU_DIAG(pop)
       }
       default:
         std::cerr << "UNIMPLEMENTED OpConstant type " << type->kind()
@@ -2518,12 +2549,12 @@ bool translator::translate_function(Function &func) {
   std::string sep = "";
   func.ForEachParam([this, &sep](const Instruction *inst) {
     auto type = inst->type_id();
-    auto result = inst->result_id();
+    auto result_id = inst->result_id();
     m_src << sep;
-    if (m_nowrite_params.count(result)) {
+    if (m_nowrite_params.count(result_id)) {
       m_src << "const ";
     }
-    m_src << src_type_memory_object_declaration(type, result);
+    m_src << src_type_memory_object_declaration(type, result_id);
     sep = ", ";
   });
 
@@ -2541,8 +2572,8 @@ bool translator::translate_function(Function &func) {
   // translating global variables.
   if (entrypoint) {
     std::unordered_set<uint32_t> used_globals_in_local_as;
-    IRContext::ProcessFunction process_fn = [this, &used_globals_in_local_as](Function* func) -> bool {
-      for (auto &bb : *func) {
+    IRContext::ProcessFunction process_fn = [this, &used_globals_in_local_as](Function* f) -> bool {
+      for (auto &bb : *f) {
         for (auto &inst : bb) {
           for (auto& op : inst) {
             if (spvIsIdType(op.type)) {
@@ -2572,18 +2603,18 @@ bool translator::translate_function(Function &func) {
   // First collect information about OpPhi's
   for (auto &bb : func) {
     for (auto &inst : bb) {
-      auto result = inst.result_id();
+      auto result_id = inst.result_id();
       if (inst.opcode() != SpvOpPhi) {
         continue;
       }
-      m_phi_vals[&func].push_back(result);
+      m_phi_vals[&func].push_back(result_id);
 
       for (unsigned i = 2; i < inst.NumOperands(); i += 2) {
         auto var = inst.GetSingleWordOperand(i);
         auto parent = inst.GetSingleWordOperand(i + 1);
         auto parentbb = func.FindBlock(parent);
 
-        m_phi_assigns[&*parentbb].push_back(std::make_pair(result, var));
+        m_phi_assigns[&*parentbb].push_back(std::make_pair(result_id, var));
       }
     }
   }
@@ -2725,7 +2756,7 @@ int translator::translate(const std::string &assembly, std::string *srcout) {
   int ret = translate();
 
   if (ret == 0) {
-    *srcout = std::move(m_src.str());
+    *srcout = m_src.str();
   }
 
   return ret;
@@ -2744,7 +2775,7 @@ int translator::translate(const std::vector<uint32_t> &binary,
   int ret = translate();
 
   if (ret == 0) {
-    *srcout = std::move(m_src.str());
+    *srcout = m_src.str();
   }
 
   return ret;

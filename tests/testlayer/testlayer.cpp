@@ -197,16 +197,17 @@ static cl_program compile(mock_program *program, cl_uint num_devices,
   if (device_list != nullptr) {
     device = device_list[0];
   } else {
-    cl_uint num_devices;
-    err = clGetProgramInfo(clprog, CL_PROGRAM_NUM_DEVICES, sizeof(num_devices),
-                           &num_devices, nullptr);
+    cl_uint num_devices_prog;
+    err = clGetProgramInfo(clprog, CL_PROGRAM_NUM_DEVICES,
+                           sizeof(num_devices_prog), &num_devices_prog,
+                           nullptr);
     if (err != CL_SUCCESS) {
       return nullptr;
     }
-    printf("num_devices = %u\n", num_devices);
+    printf("num_devices_prog = %u\n", num_devices_prog);
 
     std::vector<cl_device_id> devices;
-    devices.resize(num_devices);
+    devices.resize(num_devices_prog);
 
     err = clGetProgramInfo(clprog, CL_PROGRAM_DEVICES,
                            devices.size() * sizeof(cl_device_id),

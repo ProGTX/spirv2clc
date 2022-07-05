@@ -41,7 +41,19 @@ endif()
 if (MSVC)
     add_compile_options(/W4 /WX)
 else()
-    add_compile_options(-Wall -Wextra -pedantic)
+    add_compile_options(
+      -Wall
+      -Wextra
+      -Werror
+      -pedantic
+      -Wshadow
+    )
+endif()
+
+if(${BUILD_SHARED_LIBS})
+  set(spirv_tools_target SPIRV-Tools-shared)
+else()
+  set(spirv_tools_target SPIRV-Tools-static)
 endif()
 
 # Add SPIRV-Tools
@@ -49,6 +61,23 @@ set(SPIRV-Headers_SOURCE_DIR ${PROJECT_SOURCE_DIR}/external/SPIRV-Headers)
 set(SPIRV_TOOLS_DIR ${PROJECT_SOURCE_DIR}/external/SPIRV-Tools)
 set(SPIRV_TOOLS_BINARY_DIR ${CMAKE_BINARY_DIR}/external/SPIRV-Tools)
 add_subdirectory(${SPIRV_TOOLS_DIR} EXCLUDE_FROM_ALL)
+
+if (MSVC)
+  # External libraries raise some warnings that are treated as errors
+  target_compile_options(${spirv_tools_target} PRIVATE
+    /wd4127 # conditional expression is constant
+    /wd4389 # signed/unsigned mismatch
+    /wd4702 # unreachable code
+    /wd4706 # assignment within conditional expression
+  )
+  target_compile_options(SPIRV-Tools-opt PRIVATE
+    /wd4127 # conditional expression is constant
+    /wd4245 # conversion from '' to '', signed/unsigned mismatch
+    /wd4389 # signed/unsigned mismatch
+    /wd4702 # unreachable code
+    /wd4706 # assignment within conditional expression
+  )
+endif()
 
 set(OPENCL_HEADERS_DIR ${PROJECT_SOURCE_DIR}/external/OpenCL-Headers)
 
